@@ -1,151 +1,123 @@
-/** Connect Four
- *
- * Player 1 and 2 alternate turns. On each turn, a piece is dropped down a
- * column until a player gets four-in-a-row (horiz, vert, or diag) or until
- * board fills (tie)
- */
+const playerRed = 'R';
+const playerYellow = 'Y';
+let currPlayer = playerRed;
+let gameOver = false;
+let board;
+let currCols;
+const rows = 6;
+const cols = 7;
 
-const WIDTH = 7;
-const HEIGHT = 6;
-
-let currPlayer = 1; // active player: 1 or 2
-let board = []; // array of rows, each row is array of cells  (board[y][x])
-
-/** makeBoard: create in-JS board structure:
- *   board = array of rows, each row is array of cells  (board[y][x])
- */
-
-function makeBoard() {
-  for (let y = 0; y < HEIGHT; y++) {
-    board.push(Array.from({ length: WIDTH }));
-  }
+window.onload = function(){
+  setGame();
 }
 
-/** makeHtmlBoard: make HTML table and row of column tops. */
+function setGame(){
+  board = [];
+  currCols = [5, 5, 5, 5, 5, 5, 5];
 
-function makeHtmlBoard() {
-  const board = document.getElementById('board');
+  for(let r = 0; r < rows; r++){
+    let row = [];
+    for(let c = 0; c < cols; c++){
+      row.push(' ');
 
-  // make column tops (clickable area for adding a piece to that column)
-  const top = document.createElement('tr');
-  top.setAttribute('id', 'column-top');
-  top.addEventListener('click', handleClick);
 
-  for (let x = 0; x < WIDTH; x++) {
-    const headCell = document.createElement('td');
-    headCell.setAttribute('id', x);
-    top.append(headCell);
-  }
-
-  board.append(top);
-
-  // make main part of board
-  for (let y = 0; y < HEIGHT; y++) {
-    const row = document.createElement('tr');
-
-    for (let x = 0; x < WIDTH; x++) {
-      const cell = document.createElement('td');
-      cell.setAttribute('id', `${y}-${x}`);
-      row.append(cell);
+      let tile = document.createElement('div');
+      tile.id = r.toString() + '-' + c.toString();
+      tile.classList.add('tile');
+      tile.addEventListener('click', setPiece);
+      document.getElementById('board').append(tile);
     }
-
-    board.append(row);
+    board.push(row);
   }
 }
 
-/** findSpotForCol: given column x, return top empty y (null if filled) */
-
-function findSpotForCol(x) {
-  for (let y = HEIGHT - 1; y >= 0; y--) {
-    if (!board[y][x]) {
-      return y;
-    }
+function setPiece(){
+  if(gameOver){
+    return;
   }
-  return null;
-}
-
-/** placeInTable: update DOM to place piece into HTML table of board */
-
-function placeInTable(y, x) {
-  const piece = document.createElement('div');
-  piece.classList.add('piece');
-  piece.classList.add(`p${currPlayer}`);
-  piece.style.top = -50 * (y + 2);
-
-  const spot = document.getElementById(`${y}-${x}`);
-  spot.append(piece);
-}
-
-/** endGame: announce game end */
-
-function endGame(msg) {
-  alert(msg);
-}
-
-/** handleClick: handle click of column top to play piece */
-
-function handleClick(evt) {
-  // get x from ID of clicked cell
-  const x = +evt.target.id;
-
-  // get next spot in column (if none, ignore click)
-  const y = findSpotForCol(x);
-  if (y === null) {
+  let coords = this.id.split('-'); 
+  let r = parseInt(coords[0]);
+  let c = parseInt(coords[1]);
+  
+  r = currCols[c];
+  if(r < 0){
     return;
   }
 
-  // place piece in board and add to HTML table
-  board[y][x] = currPlayer;
-  placeInTable(y, x);
-  
-  // check for win
-  if (checkForWin()) {
-    return endGame(`Player ${currPlayer} won!`);
+  board[r][c] = currPlayer;
+  let tile = document.getElementById(r.toString() + '-' + c.toString());
+  if(currPlayer == playerRed){
+    tile.classList.add('red-piece');
+    currPlayer = playerYellow;
   }
-  
-  // check for tie
-  if (board.every(row => row.every(cell => cell))) {
-    return endGame('Tie!');
+  else{
+    tile.classList.add('yellow-piece');
+    currPlayer = playerRed;
   }
-    
-  // switch players
-  currPlayer = currPlayer === 1 ? 2 : 1;
+  r -= 1;
+  currCols[c] = r;
+
+  checkWinner();
 }
 
-/** checkForWin: check board cell-by-cell for "does a win start here?" */
-
-function checkForWin() {
-  function _win(cells) {
-    // Check four cells to see if they're all color of current player
-    //  - cells: list of four (y, x) cells
-    //  - returns true if all are legal coordinates & all match currPlayer
-
-    return cells.every(
-      ([y, x]) =>
-        y >= 0 &&
-        y < HEIGHT &&
-        x >= 0 &&
-        x < WIDTH &&
-        board[y][x] === currPlayer
-    );
+function checkWinner(){
+  // horiz.
+  for(let r = 0; r < rows; r++){
+    for(let c = 0; c < cols - 3; c++){
+      if(board[r][c] != ' '){
+        if(board[r][c] == board[r][c+1] && board[r][c+1] == board[r][c+2] && board[r][c+2] == board[r][c+3]){
+          setWinner(r, c);
+          return;
+        }
+      }
+    }
   }
-
-  for (let y = 0; y < HEIGHT; y++) {
-    for (let x = 0; x < WIDTH; x++) {
-      // get "check list" of 4 cells (starting here) for each of the different
-      // ways to win
-      const horiz = [[y, x], [y, x + 1], [y, x + 2], [y, x + 3]];
-      const vert = [[y, x], [y + 1, x], [y + 2, x], [y + 3, x]];
-      const diagDR = [[y, x], [y + 1, x + 1], [y + 2, x + 2], [y + 3, x + 3]];
-      const diagDL = [[y, x], [y + 1, x - 1], [y + 2, x - 2], [y + 3, x - 3]];
-
-      // find winner (only checking each win-possibility as needed)
-      if (_win(horiz) || _win(vert) || _win(diagDR) || _win(diagDL)) {
-        return true;
+  //vert.
+  for(let c = 0; c < cols; c++){
+    for(let r = 0; r < rows - 3; r++){
+      if(board[r][c] != ' '){
+        if(board[r][c] == board[r+1][c] && board[r+1][c] == board[r+2][c] && board[r+2][c] == board[r+3][c]){
+          setWinner(r, c);
+          return;
+        }
+      }
+    }
+  }
+  //left side diag.
+  for(let r = 0; r < rows - 3; r++){
+    for(let c = 0; c < cols - 3; c++){
+      if(board[r][c] != ' '){
+        if(board[r][c] == board[r+1][c+1] && board[r+1][c+1] == board[r+2][c+2] && board[r+2][c+2] == board[r+3][c+3]){
+          setWinner(r, c);
+          return;
+        }
+      }
+    }
+  }
+  //right side diag.
+  for(let r = 3; r < rows; r++){
+    for(let c = 0; c < cols; c++){
+      if(board[r][c] != ' '){
+        if(board[r][c] == board[r-1][c+1] && board[r-1][c+1] == board[r-2][c+2] && board[r-2][c+2] == board[r-3][c+3]){
+          setWinner(r, c);
+          return;
+        }
       }
     }
   }
 }
 
-makeBoard();
-makeHtmlBoard();
+function setWinner(r, c){
+  let winner = document.getElementById('winner');
+  if(board[r][c] == playerRed){
+    winner.innerText = 'Red Wins!';
+  }
+  else{
+    winner.innerText = 'Yellow Wins!';
+  }
+  gameOver = true;
+}
+
+function restartGame(){
+  window.parent.location = window.parent.location.href;
+}
